@@ -1,61 +1,59 @@
 import os
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from langchain.document_loaders import DropboxLoader
-from langchain.vectorstores import FAISS
-from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.chat_models import ChatOpenAI
+from langchain.vectorstores import FAISS
+from langchain.embeddings.openai import OpenAIEmbeddings
 
 app = FastAPI()
 
-# Load environment variables
-DROPBOX_ACCESS_TOKEN = os.getenv("DROPBOX_ACCESS_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-# Validate environment variables
-if not DROPBOX_ACCESS_TOKEN:
-    raise ValueError("Missing DROPBOX_ACCESS_TOKEN environment variable")
-if not OPENAI_API_KEY:
-    raise ValueError("Missing OPENAI_API_KEY environment variable")
-
-# Load documents from Dropbox folder
-loader = DropboxLoader(
-    access_token=DROPBOX_ACCESS_TOKEN,
-    folder_path="/Ed SPED Assistant"  # Your Dropbox folder name
-)
-documents = loader.load()
-
-# Initialize embeddings and vector store
-embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
-vectorstore = FAISS.from_documents(documents, embeddings)
-
-# Initialize retriever and QA chain
-retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 3})
-qa_chain = RetrievalQA.from_chain_type(
-    llm=ChatOpenAI(openai_api_key=OPENAI_API_KEY, temperature=0),
-    chain_type="stuff",
-    retriever=retriever,
-    return_source_documents=True,
+# Allow CORS from any origin (for frontend to communicate with backend)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-class Query(BaseModel):
+class QuestionRequest(BaseModel):
     question: str
 
+# Load environment variables
+DROPBOX_ACCESS_TOKEN = os.getenv("DROPBOX_ACCESS_TOKEN")
+DROPBOX_FOLDER_PATH = "/Ed SPED Assistant"  # Adjust folder path in Dropbox here
+
+# Initialize document loader for Dropbox folder
+loader = DropboxLoader(
+    access_token=DROPBOX_ACCESS_TOKEN,
+    folder_path=DROPBOX_FOLDER_PATH
+)
+
+# Load documents from Dropbox
+documents = loader.load()
+
+# Create vector embeddings and vector store
+embeddings = OpenAIEmbeddings()
+vectorstore = FAISS.from_documents(documents, embeddings)
+
+# Set up retrieval-based QA chain with OpenAI chat model
+qa_chain = RetrievalQA.from_chain_type(
+    llm=ChatOpenAI(model_name="gpt-4o-mini"),
+    chain_type="stuff",
+    retriever=vectorstore.as_retriever(),
+)
+
 @app.post("/")
-async def answer_question(query: Query):
-    question = query.question
-    if not question:
-        return {"answer": "Please provide a question."}
-
+async def answer_question(request: Request, question_request: QuestionRequest):
+    question = question_request.question
     result = qa_chain.run(question)
-
-    # Optionally include sources if available
-    sources = ""
-    if hasattr(result, "source_documents"):
-        source_docs = result.source_documents
-        sources = "\n".join(set([doc.metadata.get("source", "Unknown source") for doc in source_docs]))
+    
+    # For sources, we could customize this if your chain supports source documents
+    sources = "Sources are not yet implemented."
 
     return {
         "answer": result,
-        "sources": sources or "No sources found."
+        "sources": sources,
+    }
