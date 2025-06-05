@@ -2,3 +2,4 @@ flask
 dropbox
 openai
 python-dotenv
+gunicorn
