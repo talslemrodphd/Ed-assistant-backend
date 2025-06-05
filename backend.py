@@ -1,25 +1,26 @@
-import os
-from flask import Flask, request, jsonify
-import dropbox
-import openai
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 
-app = Flask(__name__)
+app = FastAPI()
 
-DROPBOX_TOKEN = os.getenv("DROPBOX_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# Allow your frontend to communicate with the backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # You can restrict this to just your frontend URL later
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-dbx = dropbox.Dropbox(DROPBOX_TOKEN)
-openai.api_key = OPENAI_API_KEY
-
-@app.route("/ask", methods=["POST"])
-def ask():
-    data = request.json
-    question = data.get("question")
-
-    # For now, just echo the question as a placeholder
-    answer = f"You asked: {question}"
-
-    return jsonify({"answer": answer, "sources": []})
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000)
+@app.post("/")
+async def ask_question(request: Request):
+    data = await request.json()
+    question = data.get("question", "")
+    
+    # Just for testing: return a fake answer
+    return JSONResponse({
+        "answer": f"You asked: '{question}'. This is a placeholder answer.",
+        "sources": "Dropbox placeholder"
+    })
