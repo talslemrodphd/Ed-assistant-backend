@@ -1,0 +1,4 @@
+flask
+dropbox
+openai
+python-dotenv
