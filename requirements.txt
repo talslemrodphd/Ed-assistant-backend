@@ -2,5 +2,6 @@ fastapi
 uvicorn
 openai
 python-dotenv
-requests
 dropbox
+langchain
+langchain-community
