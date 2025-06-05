@@ -1,5 +1,6 @@
-flask
-dropbox
+fastapi
+uvicorn
 openai
 python-dotenv
-gunicorn
+requests
+dropbox
